@@ -2,10 +2,10 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>เกมงู - Snake Game</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body {
             background: #111;
             display: flex;
@@ -15,57 +15,89 @@
             min-height: 100vh;
             font-family: 'Segoe UI', Tahoma, sans-serif;
             color: white;
+            overflow: hidden;
+            touch-action: none;
         }
         h1 {
-            margin-bottom: 10px;
+            margin: 10px 0;
             color: #4ade80;
             text-shadow: 0 0 10px #4ade80;
+            font-size: 28px;
         }
         .score-board {
-            font-size: 22px;
-            margin-bottom: 15px;
+            font-size: 18px;
+            margin-bottom: 10px;
             display: flex;
-            gap: 30px;
+            gap: 25px;
         }
         canvas {
             background: #1a1a1a;
             border: 3px solid #4ade80;
             border-radius: 8px;
             box-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+            max-width: 95vw;
+            max-height: 55vh;
         }
         .controls {
-            margin-top: 20px;
+            margin-top: 8px;
             text-align: center;
             color: #aaa;
-            font-size: 15px;
+            font-size: 13px;
         }
         .btn {
-            margin-top: 15px;
-            padding: 10px 25px;
-            font-size: 16px;
+            margin-top: 10px;
+            padding: 10px 22px;
+            font-size: 15px;
             background: #4ade80;
             color: #111;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
-            transition: 0.2s;
         }
-        .btn:hover {
-            background: #22c55e;
-            transform: scale(1.05);
-        }
+        .btn:active { background: #22c55e; }
         .game-over {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 40px;
+            font-size: 32px;
             color: #ef4444;
             text-shadow: 0 0 15px #ef4444;
             display: none;
             font-weight: bold;
             pointer-events: none;
+        }
+
+        /* ปุ่มควบคุมมือถือ */
+        .mobile-controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 12px;
+            gap: 6px;
+        }
+        .horizontal {
+            display: flex;
+            gap: 6px;
+        }
+        .ctrl-btn {
+            width: 64px;
+            height: 64px;
+            background: #333;
+            border: 2px solid #4ade80;
+            border-radius: 12px;
+            color: #4ade80;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            cursor: pointer;
+        }
+        .ctrl-btn:active {
+            background: #4ade80;
+            color: #111;
         }
     </style>
 </head>
@@ -82,11 +114,21 @@
         <div class="game-over" id="gameOverText">เกมจบ!</div>
     </div>
 
-    <button class="btn" onclick="restartGame()">เริ่มใหม่ (R)</button>
+    <!-- ปุ่มควบคุมสำหรับมือถือ -->
+    <div class="mobile-controls">
+        <div class="ctrl-btn" id="btnUp">▲</div>
+        <div class="horizontal">
+            <div class="ctrl-btn" id="btnLeft">◀</div>
+            <div class="ctrl-btn" id="btnDown">▼</div>
+            <div class="ctrl-btn" id="btnRight">▶</div>
+        </div>
+    </div>
+
+    <button class="btn" onclick="restartGame()">เริ่มใหม่</button>
 
     <div class="controls">
-        ใช้ปุ่มลูกศร ↑ ↓ ← → หรือ WASD ในการควบคุม<br>
-        กดปุ่มทิศทางเพื่อเริ่มเคลื่อนที่ • กด <b>R</b> เพื่อเริ่มใหม่
+        คอมพิวเตอร์: ใช้ลูกศร หรือ WASD<br>
+        มือถือ: กดปุ่มด้านบน
     </div>
 
     <script>
@@ -103,22 +145,19 @@
         let score = 0;
         let highScore = localStorage.getItem("snakeHighScore") || 0;
         let gameRunning = true;
-        let gameStarted = false;   // ยังไม่เริ่มเคลื่อนที่จนกว่าจะกดปุ่ม
-        let gameSpeed = 120;
+        let gameStarted = false;
+        let gameSpeed = 130;
 
         document.getElementById("highScore").textContent = highScore;
 
         function drawGame() {
-            // ล้างจอ
             ctx.fillStyle = "#1a1a1a";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // วาดงู
             snake.forEach((segment, index) => {
                 ctx.fillStyle = index === 0 ? "#4ade80" : "#22c55e";
                 ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 2, gridSize - 2);
 
-                // ตา
                 if (index === 0) {
                     ctx.fillStyle = "#000";
                     const eye = 3;
@@ -141,16 +180,9 @@
                 }
             });
 
-            // วาดอาหาร
             ctx.fillStyle = "#ef4444";
             ctx.beginPath();
-            ctx.arc(
-                food.x * gridSize + gridSize / 2,
-                food.y * gridSize + gridSize / 2,
-                gridSize / 2 - 2,
-                0,
-                Math.PI * 2
-            );
+            ctx.arc(food.x * gridSize + gridSize / 2, food.y * gridSize + gridSize / 2, gridSize / 2 - 2, 0, Math.PI * 2);
             ctx.fill();
 
             document.getElementById("score").textContent = score;
@@ -159,111 +191,4 @@
         function moveSnake() {
             if (!gameRunning || !gameStarted) return;
 
-            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
-
-            // ชนขอบ
-            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
-                gameOver();
-                return;
-            }
-
-            // ชนตัวเอง (ข้ามหัวตัวเอง)
-            for (let i = 0; i < snake.length; i++) {
-                if (head.x === snake[i].x && head.y === snake[i].y) {
-                    gameOver();
-                    return;
-                }
-            }
-
-            snake.unshift(head);
-
-            // กินอาหาร
-            if (head.x === food.x && head.y === food.y) {
-                score += 10;
-                if (score > highScore) {
-                    highScore = score;
-                    localStorage.setItem("snakeHighScore", highScore);
-                    document.getElementById("highScore").textContent = highScore;
-                }
-                if (gameSpeed > 60) gameSpeed -= 2;
-                placeFood();
-            } else {
-                snake.pop();
-            }
-        }
-
-        function placeFood() {
-            food.x = Math.floor(Math.random() * tileCount);
-            food.y = Math.floor(Math.random() * tileCount);
-
-            for (let segment of snake) {
-                if (food.x === segment.x && food.y === segment.y) {
-                    placeFood();
-                    return;
-                }
-            }
-        }
-
-        function gameOver() {
-            gameRunning = false;
-            document.getElementById("gameOverText").style.display = "block";
-        }
-
-        function restartGame() {
-            snake = [{ x: 10, y: 10 }];
-            dx = 0;
-            dy = 0;
-            score = 0;
-            gameSpeed = 120;
-            gameRunning = true;
-            gameStarted = false;
-            document.getElementById("gameOverText").style.display = "none";
-            placeFood();
-            drawGame();
-        }
-
-        // ควบคุม
-        document.addEventListener("keydown", (e) => {
-            if (!gameRunning && e.key.toLowerCase() !== "r") return;
-
-            switch (e.key) {
-                case "ArrowUp":
-                case "w":
-                case "W":
-                    if (dy !== 1) { dx = 0; dy = -1; gameStarted = true; }
-                    break;
-                case "ArrowDown":
-                case "s":
-                case "S":
-                    if (dy !== -1) { dx = 0; dy = 1; gameStarted = true; }
-                    break;
-                case "ArrowLeft":
-                case "a":
-                case "A":
-                    if (dx !== 1) { dx = -1; dy = 0; gameStarted = true; }
-                    break;
-                case "ArrowRight":
-                case "d":
-                case "D":
-                    if (dx !== -1) { dx = 1; dy = 0; gameStarted = true; }
-                    break;
-                case "r":
-                case "R":
-                    restartGame();
-                    break;
-            }
-        });
-
-        function gameLoop() {
-            moveSnake();
-            drawGame();
-            setTimeout(gameLoop, gameSpeed);
-        }
-
-        // เริ่มต้น
-        placeFood();
-        drawGame();
-        gameLoop();
-    </script>
-</body>
-</html>
+            const head = { x: 
